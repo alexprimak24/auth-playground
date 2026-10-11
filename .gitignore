@@ -2,3 +2,4 @@ node_modules
 keys/private.pem
 users.json
 
+sessions.json

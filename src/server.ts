@@ -3,6 +3,18 @@ import argon2 from "argon2";
 import { randomUUID } from "node:crypto";
 import { getUsers, saveUsers } from "./store.js";
 import { createAccessToken, verifyAccessToken } from "./jwt.js";
+import {
+  createRefreshToken,
+  rotateRefreshToken,
+  SEVEN_DAYS,
+} from "./refresh.js";
+
+const refreshCookieOptions = {
+  httpOnly: true, // js cannot read this cookie from document.cookie, therefore we reduce risk of XSS
+  secure: false, // localhost development only; true with HTTPS , so this allows to send over HTTP
+  sameSite: "strict" as const, // cookies is only sent on same-site requests
+  path: "/", // cookie is sent to all paths /login /api/users....
+};
 
 const app = express();
 // parses incoming JSON req bodies and puts the result in req.body
@@ -75,10 +87,14 @@ app.post("/login", async (req, res) => {
     }
 
     const accessToken = await createAccessToken(user.id);
+    const refreshToken = await createRefreshToken(user.id);
 
-    return res.status(200).json({
-      accessToken,
+    res.cookie("refreshToken", refreshToken, {
+      ...refreshCookieOptions,
+      maxAge: SEVEN_DAYS,
     });
+
+    return res.json({ accessToken });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Internal server error" });
@@ -111,6 +127,36 @@ app.get("/me", async (req, res) => {
   } catch {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
+});
+
+app.post("/refresh", async (req, res) => {
+  const cookies = req.headers.cookie ?? "";
+
+  const refreshToken = cookies
+    .split("; ")
+    .find((c) => c.startsWith("refreshToken="))
+    // undefined?.slice(13) // undefined ✅
+    // undefined.slice(13)  // TypeError ❌
+    ?.slice("refreshToken=".length);
+
+  if (!refreshToken) {
+    return res.status(401).json({ error: "Missing refresh token" });
+  }
+
+  const result = await rotateRefreshToken(refreshToken);
+
+  if (!result) {
+    return res.status(401).json({ error: "Invalid refresh token" });
+  }
+
+  const accessToken = await createAccessToken(result.userId);
+
+  res.cookie("refreshToken", result.token, {
+    ...refreshCookieOptions,
+    maxAge: SEVEN_DAYS,
+  });
+
+  return res.json({ accessToken });
 });
 
 app.listen(3000, () => {
