@@ -64,3 +64,13 @@ export async function rotateRefreshToken(oldToken: string) {
 
   return { userId, token: newToken };
 }
+
+export async function revokeRefreshToken(token: string) {
+  const sessions = await getSessions();
+
+  const remainingSessions = sessions.filter(
+    (session) => session.tokenHash !== hashToken(token),
+  );
+
+  await saveSessions(remainingSessions);
+}

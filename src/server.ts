@@ -5,6 +5,7 @@ import { getUsers, saveUsers } from "./store.js";
 import { createAccessToken, verifyAccessToken } from "./jwt.js";
 import {
   createRefreshToken,
+  revokeRefreshToken,
   rotateRefreshToken,
   SEVEN_DAYS,
 } from "./refresh.js";
@@ -19,6 +20,7 @@ const refreshCookieOptions = {
 const app = express();
 // parses incoming JSON req bodies and puts the result in req.body
 app.use(express.json());
+app.use(express.static("public"));
 
 app.post("/register", async (req, res) => {
   const { email, password } = req.body ?? {};
@@ -64,6 +66,11 @@ app.post("/register", async (req, res) => {
   }
 });
 
+// POST /login
+//     ↓
+// Access JWT → JSON response (15 min)
+// Refresh token → HttpOnly cookie (7 days)
+//     ↓
 app.post("/login", async (req, res) => {
   const { email, password } = req.body ?? {};
 
@@ -129,6 +136,12 @@ app.get("/me", async (req, res) => {
   }
 });
 
+// POST /refresh
+//     ↓
+// Validate refresh token
+// Rotate it (invalidate old token)
+//     ↓
+// New access JWT + new refresh cookie
 app.post("/refresh", async (req, res) => {
   const cookies = req.headers.cookie ?? "";
 
@@ -157,6 +170,32 @@ app.post("/refresh", async (req, res) => {
   });
 
   return res.json({ accessToken });
+});
+
+// POST /logout
+//     ↓
+// Read refresh token from cookie
+//     ↓
+// Delete session from sessions.json
+//     ↓
+// Clear refresh cookie
+//     ↓
+// Return 204 No Content
+app.post("/logout", async (req, res) => {
+  const cookies = req.headers.cookie ?? "";
+
+  const refreshToken = cookies
+    .split("; ")
+    .find((c) => c.startsWith("refreshToken="))
+    ?.slice("refreshToken=".length);
+
+  if (refreshToken) {
+    await revokeRefreshToken(refreshToken);
+  }
+
+  res.clearCookie("refreshToken", refreshCookieOptions);
+
+  return res.sendStatus(204);
 });
 
 app.listen(3000, () => {

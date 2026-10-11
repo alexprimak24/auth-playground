@@ -3,5 +3,10 @@
     "id": "daec552f-4b92-4ce1-aa75-871cda46c0a4",
     "email": "alex@example.com",
     "passwordHash": "$argon2id$v=19$m=65536,p=4,t=3$j2miKkQXivrwpZ+v+Dqhng$N3zueFfnA0eCnz1P4iWSdRPZbM38EYyWzCiBFEIGXGI"
+  },
+  {
+    "id": "7dfb4f31-7ae0-49d4-8cf8-3c773e199183",
+    "email": "alexprimak998@gmail.com",
+    "passwordHash": "$argon2id$v=19$m=65536,p=4,t=3$dOxs8J7n5MfVh8tkUpsoHA$uTKsrsJMdMwaZl2YRWeivcryVPHQfM4v5LJPie9i3mw"
   }
 ]
