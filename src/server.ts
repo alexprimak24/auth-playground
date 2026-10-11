@@ -2,6 +2,7 @@ import express from "express";
 import argon2 from "argon2";
 import { randomUUID } from "node:crypto";
 import { getUsers, saveUsers } from "./store.js";
+import { createAccessToken, verifyAccessToken } from "./jwt.js";
 
 const app = express();
 // parses incoming JSON req bodies and puts the result in req.body
@@ -73,16 +74,42 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    const accessToken = await createAccessToken(user.id);
+
     return res.status(200).json({
-      message: "Login successful",
-      user: {
-        id: user.id,
-        email: user.email,
-      },
+      accessToken,
     });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/me", async (req, res) => {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing token" });
+  }
+
+  const token = authorization.slice(7);
+
+  try {
+    const userId = await verifyAccessToken(token);
+
+    const users = await getUsers();
+    const user = users.find((u) => u.id === userId);
+
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    return res.json({
+      id: user.id,
+      email: user.email,
+    });
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired token" });
   }
 });
 
