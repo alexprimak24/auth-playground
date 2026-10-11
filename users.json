@@ -1,0 +1,7 @@
+[
+  {
+    "id": "daec552f-4b92-4ce1-aa75-871cda46c0a4",
+    "email": "alex@example.com",
+    "passwordHash": "$argon2id$v=19$m=65536,p=4,t=3$j2miKkQXivrwpZ+v+Dqhng$N3zueFfnA0eCnz1P4iWSdRPZbM38EYyWzCiBFEIGXGI"
+  }
+]
