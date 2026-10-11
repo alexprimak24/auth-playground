@@ -14,7 +14,7 @@ export async function createAccessToken(userId: string) {
     .setIssuer("auth-lab") // iss: Who created the token
     .setAudience("auth-lab-api") // aud: Who should accept the token
     .setIssuedAt() // iat: Creation timestamp
-    .setExpirationTime("10s") // exp: Expires in 15 minutes
+    .setExpirationTime("15m") // exp: Expires in 15 minutes
     .sign(privateKey); // Sign using private key
 }
 

@@ -45,27 +45,40 @@ async function request(path, options = {}, requiresAuth = false) {
   }
 
   async function sendRequest() {
-    return fetch(path, {
+    // this is like a snapshot
+    const tokenUsed = accessToken;
+
+    const response = await fetch(path, {
       ...options,
       headers: {
         "Content-Type": "application/json",
         ...options.headers,
-        ...(requiresAuth && accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
+        ...(requiresAuth && tokenUsed
+          ? { Authorization: `Bearer ${tokenUsed}` }
           : {}),
       },
     });
+
+    return { response, tokenUsed };
   }
-
-  let response = await sendRequest();
-
-  // JWT expired? Refresh and retry once.
+  // we call sendReques
+  let { response, tokenUsed } = await sendRequest();
+  // in case we receive 401, we check whether the token we did request with is the same, if not - we treat that accessToken as already rotated , and therefore without refreshing we are trying again
   if (response.status === 401 && requiresAuth) {
-    const refreshed = await refreshAccessToken();
+    //another request may have already refreshed out token
+    if (accessToken !== tokenUsed && accessToken !== null) {
+      // a newer token exists, no need to refresh
+    } else {
+      const refreshed = await refreshAccessToken();
 
-    if (refreshed) {
-      response = await sendRequest();
+      if (!refreshed) {
+        show({ status: 401, error: "Session expired" });
+        return null;
+      }
     }
+    // retry with the latest access token
+    // () are needed to tell that this is not a code block, it is object destructuring assignment
+    ({ response } = await sendRequest());
   }
 
   const data = await response.json().catch(() => null);
