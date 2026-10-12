@@ -9,7 +9,7 @@ Simple authentication system built to refresh how modern web auth works.
 - **Storage:** just JSON files (instead of a database)
 - **Password hashing:** Argon2id
 - **JWT:** RS256 (asymmetric signing)
-- **Refresh tokens:**SHA-256 hashed, cryptographically secure random tokens
+- **Refresh tokens:** SHA-256 hashed, cryptographically secure random tokens
 
 ## Architecture
 
