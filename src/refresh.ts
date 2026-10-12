@@ -30,47 +30,76 @@ function hashToken(token: string) {
 }
 
 export async function createRefreshToken(userId: string) {
-  const token = randomBytes(32).toString("hex");
-  const sessions = await getSessions();
+  return withSessionLock(async () => {
+    const token = randomBytes(32).toString("hex");
+    const sessions = await getSessions();
 
-  sessions.push({
-    userId,
-    tokenHash: hashToken(token),
-    expiresAt: Date.now() + SEVEN_DAYS,
+    sessions.push({
+      userId,
+      tokenHash: hashToken(token),
+      expiresAt: Date.now() + SEVEN_DAYS,
+    });
+
+    await saveSessions(sessions);
+    return token;
   });
-
-  await saveSessions(sessions);
-  return token;
 }
 
 export async function rotateRefreshToken(oldToken: string) {
-  const sessions = await getSessions();
-  const index = sessions.findIndex((s) => s.tokenHash === hashToken(oldToken));
+  return withSessionLock(async () => {
+    const sessions = await getSessions();
+    const index = sessions.findIndex(
+      (s) => s.tokenHash === hashToken(oldToken),
+    );
 
-  if (index === -1 || sessions[index]!.expiresAt < Date.now()) {
-    return null;
-  }
+    if (index === -1 || sessions[index]!.expiresAt < Date.now()) {
+      return null;
+    }
 
-  const userId = sessions[index]!.userId;
-  const newToken = randomBytes(32).toString("hex");
+    const userId = sessions[index]!.userId;
+    const newToken = randomBytes(32).toString("hex");
 
-  sessions[index] = {
-    userId,
-    tokenHash: hashToken(newToken),
-    expiresAt: Date.now() + SEVEN_DAYS,
-  };
+    sessions[index] = {
+      userId,
+      tokenHash: hashToken(newToken),
+      expiresAt: Date.now() + SEVEN_DAYS,
+    };
 
-  await saveSessions(sessions);
+    await saveSessions(sessions);
 
-  return { userId, token: newToken };
+    return { userId, token: newToken };
+  });
 }
 
 export async function revokeRefreshToken(token: string) {
-  const sessions = await getSessions();
+  return withSessionLock(async () => {
+    const sessions = await getSessions();
 
-  const remainingSessions = sessions.filter(
-    (session) => session.tokenHash !== hashToken(token),
-  );
+    const remainingSessions = sessions.filter(
+      (session) => session.tokenHash !== hashToken(token),
+    );
 
-  await saveSessions(remainingSessions);
+    await saveSessions(remainingSessions);
+  });
+}
+// this is replacement for atomic db operations
+// with just db that is not needed
+let sessionQueue = Promise.resolve();
+
+async function withSessionLock<T>(operation: () => Promise<T>): Promise<T> {
+  const previous = sessionQueue;
+
+  let release!: () => void;
+
+  sessionQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await previous;
+
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
 }

@@ -54,9 +54,14 @@ function show(data) {
 }
 
 async function request(path, options = {}, requiresAuth = false) {
+  const version = sessionVersion;
   if (requiresAuth) {
     // wait until initial session restoration finishes
     await sessionReady;
+    // if auth changes while request is waiting the request won't proceed (but it cancels only not sent req, not the ones that are already in flight)
+    if (version !== sessionVersion || !accessToken) {
+      show({ error: "Not authenticated" });
+    }
   }
 
   async function sendRequest() {

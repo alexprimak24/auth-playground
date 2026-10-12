@@ -11,9 +11,11 @@ import {
 } from "./refresh.js";
 import { checkOrigin } from "./security.js";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const refreshCookieOptions = {
   httpOnly: true, // js cannot read this cookie from document.cookie, therefore we reduce risk of XSS
-  secure: false, // localhost development only; true with HTTPS , so this allows to send over HTTP
+  secure: isProduction, // false for - localhost development only; true with HTTPS , so this allows to send over HTTP
   sameSite: "strict" as const, // cookies is only sent on same-site requests
   path: "/", // cookie is sent to all paths /login /api/users....
 };
@@ -31,6 +33,12 @@ app.use(["/login", "/refresh", "/logout"], checkOrigin);
 
 // herefore my js endpoint will read that user does not have accessToken (as it is called from another website) , tries refreshToken - refreshToken does not exist - not authorized
 
+app.use(["/login", "/refresh", "/me"], (req, res, next) => {
+  // /me returns private user info, we don't want http caches store that stuff
+  // no-store means do nnot store response in HTTP cache
+  res.setHeader("Cache-Contol", "no-store");
+  next();
+});
 app.post("/register", async (req, res) => {
   const { email, password } = req.body ?? {};
 
