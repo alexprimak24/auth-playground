@@ -9,6 +9,7 @@ import {
   rotateRefreshToken,
   SEVEN_DAYS,
 } from "./refresh.js";
+import { checkOrigin } from "./security.js";
 
 const refreshCookieOptions = {
   httpOnly: true, // js cannot read this cookie from document.cookie, therefore we reduce risk of XSS
@@ -21,6 +22,14 @@ const app = express();
 // parses incoming JSON req bodies and puts the result in req.body
 app.use(express.json());
 app.use(express.static("public"));
+
+// this mv decides whether to accept request.
+// protect state-changing endpoints.
+app.use(["/login", "/refresh", "/logout"], checkOrigin);
+// while sameSite: "strict" - the browser decides whether to attack cookies
+// example: browser sends req without adding Origin or Referer, so our checkOrigin mv will go though but sameSite: "strict" will catch that this req been done from another website, and won't attack cookies
+
+// herefore my js endpoint will read that user does not have accessToken (as it is called from another website) , tries refreshToken - refreshToken does not exist - not authorized
 
 app.post("/register", async (req, res) => {
   const { email, password } = req.body ?? {};
