@@ -1,5 +1,7 @@
 let accessToken = null;
 let refreshPromise = null;
+// current authentication state
+let sessionVersion = 0;
 
 const output = document.querySelector("#output");
 
@@ -9,25 +11,38 @@ async function refreshAccessToken() {
     return refreshPromise;
   }
 
-  refreshPromise = (async () => {
+  const version = sessionVersion;
+
+  const promise = (async () => {
     const response = await fetch("/refresh", {
       method: "POST",
     });
 
     if (!response.ok) {
-      accessToken = null;
+      if (version === sessionVersion) {
+        accessToken = null;
+      }
+
       return false;
     }
 
     const data = await response.json();
-    accessToken = data.accessToken;
 
+    // ignore responses belonging to an older session
+    if (version !== sessionVersion) {
+      return false;
+    }
+
+    accessToken = data.accessToken;
     return true;
   })();
 
+  refreshPromise = promise;
+
   try {
-    return await refreshPromise;
+    return await promise;
   } finally {
+    // set to null, so on refresh, we can refresh again
     refreshPromise = null;
   }
 }
@@ -105,12 +120,14 @@ document.querySelector("#register").onclick = () =>
   });
 
 document.querySelector("#login").onclick = async () => {
+  const version = ++sessionVersion;
+
   const data = await request("/login", {
     method: "POST",
     body: JSON.stringify(credentials()),
   });
 
-  if (data?.accessToken) {
+  if (version === sessionVersion && data?.accessToken) {
     accessToken = data.accessToken;
   }
 };
@@ -124,9 +141,11 @@ document.querySelector("#refresh").onclick = async () => {
 };
 
 document.querySelector("#logout").onclick = async () => {
+  // invalidate pending refresh results immidiately
+  ++sessionVersion;
+  accessToken = null;
+
   await request("/logout", {
     method: "POST",
   });
-
-  accessToken = null;
 };
